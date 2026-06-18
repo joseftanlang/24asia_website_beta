@@ -3,6 +3,22 @@ import { useAuth } from '../context/AuthContext';
 
 export default function AppNavbar() {
   const { profile, isManager, logout } = useAuth();
+  
+  // Check if user has specific roles
+  const hasRole = (role) => {
+    const roles = profile?.roles || [];
+    if (Array.isArray(roles)) {
+      return roles.includes(role);
+    }
+    if (typeof roles === 'string') {
+      return roles === role;
+    }
+    return false;
+  };
+
+  // Check if user is Manager or Volunteer Leader
+  const isManagerOrVolunteerLeader = isManager || hasRole('Volunteer Leader');
+
   return (
     <nav className="navbar navbar-expand-lg navbar-dark navbar-24 sticky-top">
       <div className="container">
@@ -14,11 +30,22 @@ export default function AppNavbar() {
         </button>
         <div className="collapse navbar-collapse" id="nav">
           <ul className="navbar-nav me-auto">
+            {/* Everyone can see these */}
             <li className="nav-item"><NavLink className="nav-link" to="/">Dashboard</NavLink></li>
-            <li className="nav-item"><NavLink className="nav-link" to="/events">Events</NavLink></li>
-            <li className="nav-item"><NavLink className="nav-link" to="/trainings">Trainings</NavLink></li>
-            <li className="nav-item"><NavLink className="nav-link" to="/scan">Scan</NavLink></li>
-            {isManager && <li className="nav-item"><NavLink className="nav-link" to="/admin">Admin</NavLink></li>}
+            <li className="nav-item"><NavLink className="nav-link" to="/events">Event</NavLink></li>
+            <li className="nav-item"><NavLink className="nav-link" to="/trainings">Training</NavLink></li>
+            <li className="nav-item"><NavLink className="nav-link" to="/champions">Achievement</NavLink></li>
+            <li className="nav-item"><NavLink className="nav-link" to="/settings">ID Card</NavLink></li>
+            
+            {/* Only Manager can see Admin */}
+            {isManager && (
+              <li className="nav-item"><NavLink className="nav-link" to="/admin">Admin</NavLink></li>
+            )}
+            
+            {/* Only Manager or Volunteer Leader can see Scan */}
+            {isManagerOrVolunteerLeader && (
+              <li className="nav-item"><NavLink className="nav-link" to="/scan">Scan</NavLink></li>
+            )}
           </ul>
           <ul className="navbar-nav">
             <li className="nav-item">

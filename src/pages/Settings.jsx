@@ -124,11 +124,14 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
   const { canInstall, installed, isIOS, promptInstall } = useInstallPrompt();
-  
+
   // Delete account states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteStep, setDeleteStep] = useState(1);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Collapse state for mobile
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const getRoles = () => {
     const roles = profile?.roles;
@@ -140,21 +143,45 @@ export default function Settings() {
 
   const getRoleBadge = () => {
     const roles = getRoles();
-    if (roles.includes('Manager')) return { label: 'Manager', color: 'bg-danger' };
-    if (roles.includes('Volunteer Leader')) return { label: 'Volunteer Leader', color: 'bg-primary' };
-    if (roles.includes('Volunteer')) return { label: 'Volunteer', color: 'bg-success' };
-    if (roles.includes('Student')) return { label: 'Student', color: 'bg-warning text-dark' };
-    return { label: 'Member', color: 'bg-secondary' };
+    if (roles.includes('Manager')) return { label: 'Manager', color: 'bg-white text-dark', icon: '👔' };
+    if (roles.includes('Volunteer Leader')) return { label: 'Volunteer Leader', color: 'bg-danger', icon: '⭐' };
+    if (roles.includes('Volunteer')) return { label: 'Volunteer', color: 'bg-warning text-dark', icon: '🤝' };
+    if (roles.includes('Student')) return { label: 'Student', color: 'bg-warning text-dark', icon: '🎓' };
+    return { label: 'Student', color: 'bg-warning text-dark', icon: '🎓' };
   };
 
   const getRoleColor = () => {
     const roles = getRoles();
-    if (roles.includes('Manager')) return '#dc3545';
-    if (roles.includes('Volunteer Leader')) return '#0d6efd';
-    if (roles.includes('Volunteer')) return '#198754';
+    if (roles.includes('Manager')) return '#ffffff';
+    if (roles.includes('Volunteer Leader')) return '#dc3545';
+    if (roles.includes('Volunteer')) return '#ff8c00';
     if (roles.includes('Student')) return '#ffc107';
-    return '#6c757d';
+    return '#ffc107';
   };
+
+  // Generate Volunteer ID
+  // Generate Volunteer ID based on registration date
+  const generateVolunteerId = () => {
+    let registrationDate;
+    if (profile?.createdAt?.toDate) {
+      registrationDate = profile.createdAt.toDate();
+    } else if (profile?.createdAt) {
+      registrationDate = new Date(profile.createdAt);
+    } else {
+      registrationDate = new Date();
+    }
+
+    const year = registrationDate.getFullYear();
+    const month = String(registrationDate.getMonth() + 1).padStart(2, '0');
+    const day = String(registrationDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}${month}${day}`;
+
+    // use a random 4-digit number
+    const randomNum = String(Math.floor(Math.random() * 9000) + 1000);
+    return `${dateStr}${randomNum}`;
+  };
+
+  const volunteerId = generateVolunteerId();
 
   const onInstall = async () => {
     const outcome = await promptInstall();
@@ -167,7 +194,7 @@ export default function Settings() {
       let roles = profile.roles;
       if (typeof roles === 'string') roles = [roles];
       if (!roles) roles = [];
-      
+
       let phoneCode = '+65';
       let phoneNumber = profile.phone || '';
       if (profile.phone) {
@@ -227,7 +254,7 @@ export default function Settings() {
     try {
       const selfRoles = form.roles.filter((r) => ['Volunteer', 'Student', 'Volunteer Leader'].includes(r));
       const roles = profile.roles?.includes('Manager') ? [...new Set([...selfRoles, 'Manager'])] : selfRoles;
-      
+
       const fullPhone = form.phoneCode + form.phoneNumber.replace(/\s/g, '');
 
       const finalRace = form.race === 'Others' && form.customRace ? form.customRace : form.race;
@@ -248,6 +275,7 @@ export default function Settings() {
         profileText: form.profileText.trim(),
         interests: form.interests.split(',').map((s) => s.trim()).filter(Boolean),
         roles,
+        volunteerId: volunteerId, // Save volunteer ID to profile
       };
       const writeData = { ...updates, lastUpdatedAt: serverTimestamp() };
       if (profile?.onboardingComplete !== true) writeData.onboardingComplete = true;
@@ -284,7 +312,6 @@ export default function Settings() {
     setMsg(res.ok ? 'Notifications enabled!' : `Error: ${res.reason}`);
   };
 
-  // Delete Account Functions
   const handleDeleteClick = () => {
     setShowDeleteConfirm(true);
     setDeleteStep(1);
@@ -295,20 +322,12 @@ export default function Settings() {
       setDeleteStep(deleteStep + 1);
       return;
     }
-    
-    // Step 3 - Actually delete the account
+
     setDeleteLoading(true);
     try {
-      // Delete user document from Firestore
       await deleteDoc(doc(db, 'users', user.uid));
-      
-      // Delete user from Firebase Auth
       await user.delete();
-      
-      // Sign out
       await signOut(auth);
-      
-      // Redirect to login
       window.location.href = '/login';
     } catch (error) {
       console.error('Delete account error:', error);
@@ -334,191 +353,208 @@ export default function Settings() {
       <div className="row g-4">
         <div className="col-12 col-lg-7">
           <div className="card p-4">
-            <h5 className="mb-3">Profile Information</h5>
-            <div className="row g-3">
-              <div className="col-12">
-                <label className="form-label">Profile Photo</label>
-                <div className="d-flex align-items-center gap-3">
-                  {profile.photoUrl ? (
-                    <img src={profile.photoUrl} alt="Profile" className="profile-photo-preview" />
-                  ) : (
-                    <div className="profile-photo-placeholder">{(profile.name || '?').charAt(0).toUpperCase()}</div>
-                  )}
-                  <label className="btn btn-outline-secondary">
-                    Change Photo
-                    <input type="file" accept="image/*" hidden onChange={uploadPhoto} />
-                  </label>
+            {/* Collapsible Header for Mobile */}
+            <div
+              className="d-flex d-lg-none justify-content-between align-items-center cursor-pointer"
+              onClick={() => setIsCollapsed(!isCollapsed)}
+              style={{ cursor: 'pointer' }}
+            >
+              <h5 className="mb-0">Profile Information</h5>
+              <span style={{ fontSize: '1.5rem' }}>
+                {isCollapsed ? '▼' : '▲'}
+              </span>
+            </div>
+
+            {/* Always visible on desktop, collapsible on mobile */}
+            <div style={{
+              display: window.innerWidth >= 992 ? 'block' : (isCollapsed ? 'none' : 'block')
+            }}>
+              <h5 className="mb-3 d-none d-lg-block">Profile Information</h5>
+              <div className="row g-3">
+                <div className="col-12">
+                  <label className="form-label">Profile Photo</label>
+                  <div className="d-flex align-items-center gap-3">
+                    {profile.photoUrl ? (
+                      <img src={profile.photoUrl} alt="Profile" className="profile-photo-preview" />
+                    ) : (
+                      <div className="profile-photo-placeholder">{(profile.name || '?').charAt(0).toUpperCase()}</div>
+                    )}
+                    <label className="btn btn-outline-secondary">
+                      Change Photo
+                      <input type="file" accept="image/*" hidden onChange={uploadPhoto} />
+                    </label>
+                  </div>
                 </div>
-              </div>
-              
-              <div className="col-md-6">
-                <label className="form-label">Full Name</label>
-                <input className="form-control" value={form.name} onChange={set('name')} />
-              </div>
-              
-              <div className="col-md-6">
-                <label className="form-label">Phone Number</label>
-                <div className="d-flex gap-2">
-                  <select 
-                    className="form-select" 
-                    value={form.phoneCode} 
-                    onChange={set('phoneCode')}
-                    style={{ width: '120px', flexShrink: 0 }}
-                  >
-                    {countryCodes.map((c) => (
-                      <option key={c.code} value={c.code}>{c.code}</option>
+
+                <div className="col-md-6">
+                  <label className="form-label">Full Name</label>
+                  <input className="form-control" value={form.name} onChange={set('name')} />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Phone Number</label>
+                  <div className="d-flex gap-2">
+                    <select
+                      className="form-select"
+                      value={form.phoneCode}
+                      onChange={set('phoneCode')}
+                      style={{ width: '120px', flexShrink: 0 }}
+                    >
+                      {countryCodes.map((c) => (
+                        <option key={c.code} value={c.code}>{c.code}</option>
+                      ))}
+                    </select>
+                    <input
+                      className="form-control"
+                      value={form.phoneNumber}
+                      onChange={set('phoneNumber')}
+                      placeholder="Phone number"
+                    />
+                  </div>
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Date of Birth</label>
+                  <input type="date" className="form-control" value={form.dob} onChange={set('dob')} />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Gender</label>
+                  <select className="form-select" value={form.gender} onChange={set('gender')}>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                    <option value="prefer_not_to_say">Prefer not to say</option>
+                  </select>
+                </div>
+
+                <div className="col-md-12">
+                  <label className="form-label">Address</label>
+                  <input className="form-control" value={form.address} onChange={set('address')} placeholder="Enter your address" />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Race</label>
+                  <select className="form-select" value={form.race} onChange={set('race')}>
+                    <option value="">Select race</option>
+                    {races.map((r) => (
+                      <option key={r} value={r}>{r}</option>
                     ))}
                   </select>
-                  <input 
-                    className="form-control" 
-                    value={form.phoneNumber} 
-                    onChange={set('phoneNumber')}
-                    placeholder="Phone number"
-                  />
+                  {form.race === 'Others' && (
+                    <input
+                      className="form-control mt-2"
+                      value={form.customRace}
+                      onChange={set('customRace')}
+                      placeholder="Please specify your race"
+                    />
+                  )}
                 </div>
-              </div>
-              
-              <div className="col-md-6">
-                <label className="form-label">Date of Birth</label>
-                <input type="date" className="form-control" value={form.dob} onChange={set('dob')} />
-              </div>
-              
-              <div className="col-md-6">
-                <label className="form-label">Gender</label>
-                <select className="form-select" value={form.gender} onChange={set('gender')}>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer_not_to_say">Prefer not to say</option>
-                </select>
-              </div>
 
-              <div className="col-md-12">
-                <label className="form-label">Address</label>
-                <input className="form-control" value={form.address} onChange={set('address')} placeholder="Enter your address" />
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Race</label>
-                <select className="form-select" value={form.race} onChange={set('race')}>
-                  <option value="">Select race</option>
-                  {races.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-                {form.race === 'Others' && (
-                  <input 
-                    className="form-control mt-2" 
-                    value={form.customRace} 
-                    onChange={set('customRace')}
-                    placeholder="Please specify your race"
-                  />
-                )}
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Religion</label>
-                <select className="form-select" value={form.religion} onChange={set('religion')}>
-                  <option value="">Select religion</option>
-                  {religions.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-                {form.religion === 'Others' && (
-                  <input 
-                    className="form-control mt-2" 
-                    value={form.customReligion} 
-                    onChange={set('customReligion')}
-                    placeholder="Please specify your religion"
-                  />
-                )}
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Citizenship</label>
-                <input className="form-control" value={form.citizenship} onChange={set('citizenship')} placeholder="e.g. Singaporean" />
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Blood Type</label>
-                <select className="form-select" value={form.bloodType} onChange={set('bloodType')}>
-                  <option value="">Select blood type</option>
-                  {bloodTypes.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Emergency Contact Name</label>
-                <input className="form-control" value={form.emergencyName} onChange={set('emergencyName')} placeholder="Emergency contact person" />
-              </div>
-
-              <div className="col-md-6">
-                <label className="form-label">Emergency Contact Number</label>
-                <input className="form-control" value={form.emergencyContact} onChange={set('emergencyContact')} placeholder="Emergency contact number" />
-              </div>
-              
-              <div className="col-12">
-                <label className="form-label">About Me</label>
-                <textarea className="form-control" rows="3" value={form.profileText} onChange={set('profileText')} />
-              </div>
-              
-              <div className="col-12">
-                <label className="form-label">Interests (comma separated)</label>
-                <input className="form-control" value={form.interests} onChange={set('interests')} placeholder="e.g. Teaching, Environment, Youth" />
-              </div>
-              
-              <div className="col-12">
-                <label className="form-label d-block">I am a…</label>
-                <div className="d-flex flex-wrap gap-2">
-                  {['Volunteer', 'Volunteer Leader', 'Student'].map((r) => (
-                    <div className="form-check form-check-inline" key={r}>
-                      <input className="form-check-input" type="checkbox" id={r}
-                        checked={form.roles.includes(r)} onChange={() => toggleRole(r)} />
-                      <label className="form-check-label" htmlFor={r}>{r}</label>
-                    </div>
-                  ))}
+                <div className="col-md-6">
+                  <label className="form-label">Religion</label>
+                  <select className="form-select" value={form.religion} onChange={set('religion')}>
+                    <option value="">Select religion</option>
+                    {religions.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                  {form.religion === 'Others' && (
+                    <input
+                      className="form-control mt-2"
+                      value={form.customReligion}
+                      onChange={set('customReligion')}
+                      placeholder="Please specify your religion"
+                    />
+                  )}
                 </div>
-                <div className="mt-2">
-                  <span className="text-secondary small">Current role: </span>
-                  <span className={`badge ${roleBadge.color} fs-6 px-3 py-2`}>{roleBadge.label}</span>
+
+                <div className="col-md-6">
+                  <label className="form-label">Citizenship</label>
+                  <input className="form-control" value={form.citizenship} onChange={set('citizenship')} placeholder="e.g. Singaporean" />
                 </div>
-                {profile.roles?.includes('Manager') && (
-                  <div className="mt-2">
-                    <span className="badge bg-danger">Manager</span>
-                    <span className="text-secondary small ms-2">(Manager role is assigned by admin)</span>
+
+                <div className="col-md-6">
+                  <label className="form-label">Blood Type</label>
+                  <select className="form-select" value={form.bloodType} onChange={set('bloodType')}>
+                    <option value="">Select blood type</option>
+                    {bloodTypes.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Emergency Contact Name</label>
+                  <input className="form-control" value={form.emergencyName} onChange={set('emergencyName')} placeholder="Emergency contact person" />
+                </div>
+
+                <div className="col-md-6">
+                  <label className="form-label">Emergency Contact Number</label>
+                  <input className="form-control" value={form.emergencyContact} onChange={set('emergencyContact')} placeholder="Emergency contact number" />
+                </div>
+
+                <div className="col-12">
+                  <label className="form-label">About Me</label>
+                  <textarea className="form-control" rows="3" value={form.profileText} onChange={set('profileText')} />
+                </div>
+
+                <div className="col-12">
+                  <label className="form-label">Interests (comma separated)</label>
+                  <input className="form-control" value={form.interests} onChange={set('interests')} placeholder="e.g. Teaching, Environment, Youth" />
+                </div>
+
+                <div className="col-12">
+                  <label className="form-label d-block">I am a…</label>
+                  <div className="d-flex flex-wrap gap-2">
+                    {['Volunteer', 'Volunteer Leader', 'Student'].map((r) => (
+                      <div className="form-check form-check-inline" key={r}>
+                        <input className="form-check-input" type="checkbox" id={r}
+                          checked={form.roles.includes(r)} onChange={() => toggleRole(r)} />
+                        <label className="form-check-label" htmlFor={r}>{r}</label>
+                      </div>
+                    ))}
                   </div>
-                )}
+                  <div className="mt-2">
+                    <span className="text-secondary small">Current role: </span>
+                    <span className={`badge ${roleBadge.color} fs-6 px-3 py-2`}>{roleBadge.label}</span>
+                  </div>
+                  {profile.roles?.includes('Manager') && (
+                    <div className="mt-2">
+                      <span className="badge bg-danger">Manager</span>
+                      <span className="text-secondary small ms-2">(Manager role is assigned by admin)</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="d-flex gap-2 mt-4">
-              <button className="btn btn-brand" disabled={saving} onClick={save}>
-                {saving ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button 
-                className="btn btn-outline-danger" 
-                onClick={handleDeleteClick}
-                style={{ borderColor: '#dc3545', color: '#dc3545' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = '#dc3545';
-                  e.currentTarget.style.color = 'white';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = '#dc3545';
-                }}
-              >
-                🗑️ Delete Account
-              </button>
+              <div className="d-flex gap-2 mt-4">
+                <button className="btn btn-brand" disabled={saving} onClick={save}>
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button
+                  className="btn btn-outline-danger"
+                  onClick={handleDeleteClick}
+                  style={{ borderColor: '#dc3545', color: '#dc3545' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#dc3545';
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#dc3545';
+                  }}
+                >
+                  🗑️ Delete Account
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         <div className="col-12 col-lg-5">
-          <div 
-            className="card qr-card p-4 text-center mb-4" 
-            style={{ 
+          <div
+            className="card qr-card p-4 text-center mb-4"
+            style={{
               borderColor: roleColor,
               borderWidth: '3px',
               borderStyle: 'solid',
@@ -528,29 +564,29 @@ export default function Settings() {
             <h5 style={{ color: roleColor }}>My check-in QR</h5>
             <div className="my-2">
               {profile.photoUrl ? (
-                <div 
-                  className="rounded-circle d-inline-flex align-items-center justify-content-center" 
-                  style={{ 
-                    width: 100, 
-                    height: 100, 
+                <div
+                  className="rounded-circle d-inline-flex align-items-center justify-content-center"
+                  style={{
+                    width: 100,
+                    height: 100,
                     backgroundColor: roleColor,
                     padding: '3px'
                   }}
                 >
-                  <img 
-                    src={profile.photoUrl} 
-                    alt="" 
-                    width="94" 
-                    height="94" 
-                    className="rounded-circle object-fit-cover" 
+                  <img
+                    src={profile.photoUrl}
+                    alt=""
+                    width="94"
+                    height="94"
+                    className="rounded-circle object-fit-cover"
                   />
                 </div>
               ) : (
-                <div 
-                  className="rounded-circle d-inline-flex align-items-center justify-content-center text-white" 
-                  style={{ 
-                    width: 96, 
-                    height: 96, 
+                <div
+                  className="rounded-circle d-inline-flex align-items-center justify-content-center text-white"
+                  style={{
+                    width: 96,
+                    height: 96,
                     fontSize: 36,
                     backgroundColor: roleColor
                   }}
@@ -560,6 +596,11 @@ export default function Settings() {
               )}
             </div>
             <div className="fw-semibold mb-1">{profile.name}</div>
+
+            <div className="text-secondary small mb-2">Role: {profile.roles?.join(' , ')}</div>
+            <div className="text-muted small mb-2" style={{ fontFamily: 'monospace', letterSpacing: '1px' }}>
+              ID: {volunteerId}
+            </div>
             <p className="small text-secondary">Show this to the event volunteer to record your attendance.</p>
             <div className="qr-frame mx-auto"><QRCodeSVG value={user.uid} size={180} /></div>
             <code className="small mt-2">{user.uid}</code>
@@ -621,6 +662,10 @@ export default function Settings() {
               <div className="fw-semibold">{profile.email}</div>
             </div>
             <div className="settings-item mt-2">
+              <div className="text-secondary small">Volunteer ID</div>
+              <div className="fw-semibold" style={{ fontFamily: 'monospace' }}>{volunteerId}</div>
+            </div>
+            <div className="settings-item mt-2">
               <div className="text-secondary small">User ID</div>
               <div className="fw-semibold text-truncate" style={{ fontSize: '0.85rem' }}>{user.uid}</div>
             </div>
@@ -663,9 +708,9 @@ export default function Settings() {
               {deleteStep === 2 && <div style={{ fontSize: '48px' }}>😰</div>}
               {deleteStep === 3 && <div style={{ fontSize: '48px' }}>💔</div>}
             </div>
-            
-            <h4 style={{ 
-              textAlign: 'center', 
+
+            <h4 style={{
+              textAlign: 'center',
               marginBottom: '12px',
               color: 'var(--bs-heading-color, #212529)'
             }}>
@@ -673,9 +718,9 @@ export default function Settings() {
               {deleteStep === 2 && 'Are you absolutely sure?'}
               {deleteStep === 3 && 'Final Confirmation'}
             </h4>
-            
-            <p style={{ 
-              textAlign: 'center', 
+
+            <p style={{
+              textAlign: 'center',
               color: 'var(--bs-secondary-color, #6c757d)',
               marginBottom: '20px',
               fontSize: '0.95rem'
@@ -683,7 +728,7 @@ export default function Settings() {
               {deleteStep === 1 && 'This action cannot be undone. All your data will be permanently removed.'}
               {deleteStep === 2 && (
                 <>
-                  This is your <strong>SECOND</strong> warning. 
+                  This is your <strong>SECOND</strong> warning.
                   <br />
                   All your volunteer hours, certificates, and event history will be lost forever.
                 </>
@@ -697,9 +742,9 @@ export default function Settings() {
               )}
             </p>
 
-            <div style={{ 
-              padding: '12px', 
-              background: 'rgba(220, 53, 69, 0.08)', 
+            <div style={{
+              padding: '12px',
+              background: 'rgba(220, 53, 69, 0.08)',
               borderRadius: '8px',
               marginBottom: '20px',
               textAlign: 'center'
@@ -712,7 +757,7 @@ export default function Settings() {
             </div>
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button 
+              <button
                 style={{
                   padding: '10px 28px',
                   background: 'var(--bs-gray-200, #e9ecef)',
@@ -730,7 +775,7 @@ export default function Settings() {
               >
                 Cancel
               </button>
-              <button 
+              <button
                 style={{
                   padding: '10px 28px',
                   background: deleteStep === 3 ? '#dc3545' : '#ffc107',
@@ -766,8 +811,8 @@ export default function Settings() {
               >
                 {deleteLoading ? 'Deleting...' : (
                   deleteStep === 1 ? 'Yes, Delete My Account' :
-                  deleteStep === 2 ? 'Yes, I\'m Sure (2/3)' :
-                  '⚠️ Confirm Delete (3/3)'
+                    deleteStep === 2 ? 'Yes, I\'m Sure (2/3)' :
+                      '⚠️ Confirm Delete (3/3)'
                 )}
               </button>
             </div>

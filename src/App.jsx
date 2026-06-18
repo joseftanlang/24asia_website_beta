@@ -5,6 +5,7 @@ import AppNavbar from './components/AppNavbar';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import EventList from './pages/EventList';
+import Champions from './pages/Champions';
 
 const Scan = lazy(() => import('./pages/Scan'));
 const Admin = lazy(() => import('./pages/Admin'));
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="/" element={<Protected><HomeOrOnboarding /></Protected>} />
             <Route path="/profile" element={<Navigate to="/settings" replace />} />
             <Route path="/settings" element={<Protected><Settings /></Protected>} />
+            <Route path="/champions" element={<Protected><Champions /></Protected>} />
             <Route path="/events" element={<Protected><EventList type="event" key="event" /></Protected>} />
             <Route path="/trainings" element={<Protected><EventList type="training" key="training" /></Protected>} />
             <Route path="/scan" element={<Protected><Scan /></Protected>} />

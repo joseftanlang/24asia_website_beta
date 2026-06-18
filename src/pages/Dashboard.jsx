@@ -15,7 +15,6 @@ export default function Dashboard() {
   const [recentCertificates, setRecentCertificates] = useState([]);
   const [isHovered, setIsHovered] = useState(null);
   const [animateStats, setAnimateStats] = useState(false);
-  const [countedValues, setCountedValues] = useState({});
 
   const getRoles = () => {
     const roles = profile?.roles;
@@ -27,20 +26,22 @@ export default function Dashboard() {
 
   const getRoleColor = () => {
     const roles = getRoles();
-    if (roles.includes('Manager')) return '#dc3545';
-    if (roles.includes('Volunteer Leader')) return '#0d6efd';
-    if (roles.includes('Volunteer')) return '#198754';
-    if (roles.includes('Student')) return '#ffc107';
-    return '#6c757d';
+    // Default is Yellow (Student)
+    if (roles.includes('Manager')) return '#ffffff'; // White
+    if (roles.includes('Volunteer Leader')) return '#dc3545'; // Red
+    if (roles.includes('Volunteer')) return '#ff8c00'; // Orange
+    if (roles.includes('Student')) return '#ffc107'; // Yellow
+    return '#ffc107'; // Default Yellow
   };
 
   const getRoleBadge = () => {
     const roles = getRoles();
-    if (roles.includes('Manager')) return { label: 'Manager', color: 'bg-danger', icon: '👔' };
-    if (roles.includes('Volunteer Leader')) return { label: 'Volunteer Leader', color: 'bg-primary', icon: '⭐' };
-    if (roles.includes('Volunteer')) return { label: 'Volunteer', color: 'bg-success', icon: '🤝' };
+    // Default is Yellow (Student)
+    if (roles.includes('Manager')) return { label: 'Manager', color: 'bg-white text-dark', icon: '👔' };
+    if (roles.includes('Volunteer Leader')) return { label: 'Volunteer Leader', color: 'bg-danger', icon: '⭐' };
+    if (roles.includes('Volunteer')) return { label: 'Volunteer', color: 'bg-warning text-dark', icon: '🤝' };
     if (roles.includes('Student')) return { label: 'Student', color: 'bg-warning text-dark', icon: '🎓' };
-    return { label: 'Member', color: 'bg-secondary', icon: '👤' };
+    return { label: 'Student', color: 'bg-warning text-dark', icon: '🎓' }; // Default Yellow
   };
 
   useEffect(() => {
@@ -131,7 +132,7 @@ export default function Dashboard() {
                     justifyContent: 'center',
                     fontSize: '32px',
                     fontWeight: 700,
-                    color: 'white'
+                    color: roleColor === '#ffffff' ? '#212529' : 'white'
                   }}>
                     {(profile.name || '?').charAt(0).toUpperCase()}
                   </div>
@@ -524,7 +525,7 @@ export default function Dashboard() {
                 onMouseEnter={(e) => {
                   e.target.style.transform = 'scale(1.08)';
                   e.target.style.background = roleColor;
-                  e.target.style.color = 'white';
+                  e.target.style.color = roleColor === '#ffffff' ? '#212529' : 'white';
                   e.target.style.boxShadow = `0 8px 30px ${roleColor}40`;
                 }}
                 onMouseLeave={(e) => {
@@ -599,7 +600,7 @@ export default function Dashboard() {
                 </div>
                 <span style={{
                   background: roleColor,
-                  color: 'white',
+                  color: roleColor === '#ffffff' ? '#212529' : 'white',
                   padding: '6px 18px',
                   borderRadius: '30px',
                   fontSize: '0.8rem',
