@@ -7,6 +7,7 @@ import { httpsCallable } from 'firebase/functions';
 import { db, storage, functions } from '../firebase';
 import { cachedQuery, invalidate } from '../lib/cache';
 import ManageEvents from '../components/ManageEvents';
+import * as XLSX from 'xlsx';
 
 const TABS = ['Users', 'Manage events', 'Students', 'Volunteers', 'Certificates', 'Maintenance'];
 
@@ -57,9 +58,39 @@ function PendingUsers() {
     load();
   };
 
+  const downloadExcel = async () => {
+    try {
+      const snap = await getDocs(query(collection(db, 'users'), where('status', '==', 'pending')));
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      
+      const excelData = data.map((u) => ({
+        'User ID': u.id,
+        'Name': u.name || '',
+        'Email': u.email || '',
+        'Phone': u.phone || '',
+        'Roles': (u.roles || []).join(', '),
+        'Status': u.status,
+        'Created At': u.createdAt?.toDate?.()?.toLocaleString() || '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Pending Users');
+      XLSX.writeFile(wb, `pending_users_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } catch (error) {
+      console.error('Error downloading Excel:', error);
+      alert('Error downloading Excel file');
+    }
+  };
+
   return (
     <>
-      <h5>Pending members ({rows.length})</h5>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h5 className="mb-0">Pending members ({rows.length})</h5>
+        <button className="btn btn-success btn-sm" onClick={downloadExcel}>
+          📊 Download Excel
+        </button>
+      </div>
       {rows.length === 0 && <p className="text-secondary">No one is waiting for approval.</p>}
       <ul className="list-group">
         {rows.map((u) => (
@@ -103,7 +134,6 @@ function StudentsList() {
       ));
       const allUsers = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       
-      // Filter: Students are those with 'Student' role OR no roles (default to Student)
       const studentsList = allUsers.filter(u => {
         const roles = u.roles || [];
         if (Array.isArray(roles)) {
@@ -112,7 +142,7 @@ function StudentsList() {
         if (typeof roles === 'string') {
           return roles === 'Student' || roles === '';
         }
-        return true; // default to Student
+        return true;
       });
       
       setStudents(studentsList);
@@ -143,6 +173,38 @@ function StudentsList() {
     setError('');
   };
 
+  const downloadExcel = () => {
+    try {
+      const excelData = students.map((u) => ({
+        'Name': u.name || '',
+        'Email': u.email || '',
+        'Phone': u.phone || '',
+        'Roles': (u.roles || []).join(', '),
+        'Status': u.status,
+        'Volunteer Hours': u.totalHoursVolunteer || 0,
+        'Training Hours': u.totalHoursStudent || 0,
+        'Certificates': (u.certificates || []).length,
+        'Date of Birth': u.dob || '',
+        'Gender': u.gender || '',
+        'Address': u.address || '',
+        'Race': u.race || '',
+        'Religion': u.religion || '',
+        'Citizenship': u.citizenship || '',
+        'Blood Type': u.bloodType || '',
+        'Emergency Contact': u.emergencyName || '',
+        'Emergency Number': u.emergencyContact || '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Students');
+      XLSX.writeFile(wb, `students_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } catch (error) {
+      console.error('Error downloading Excel:', error);
+      alert('Error downloading Excel file');
+    }
+  };
+
   const censorText = (text) => {
     if (!text) return '—';
     return '*'.repeat(text.length);
@@ -154,7 +216,12 @@ function StudentsList() {
 
   return (
     <div>
-      <h5>Students ({students.length})</h5>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h5 className="mb-0">Students ({students.length})</h5>
+        <button className="btn btn-success btn-sm" onClick={downloadExcel}>
+          📊 Download Excel
+        </button>
+      </div>
       <p className="text-secondary small">Students are users with 'Student' role or no role assigned yet.</p>
       
       {students.length === 0 ? (
@@ -193,7 +260,7 @@ function StudentsList() {
         </div>
       )}
 
-      {/* Student Details Modal */}
+      {/* Student Details Modal - same as before */}
       {selectedStudent && !showUncensored && (
         <div style={{
           position: 'fixed',
@@ -271,7 +338,6 @@ function StudentsList() {
         </div>
       )}
 
-      {/* Uncensored View */}
       {showUncensored && selectedStudent && (
         <div style={{
           position: 'fixed',
@@ -352,7 +418,6 @@ function VolunteersList() {
       ));
       const allUsers = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       
-      // Volunteers: those with Volunteer, Volunteer Leader, or Manager roles
       const volunteersList = allUsers.filter(u => {
         const roles = u.roles || [];
         if (Array.isArray(roles)) {
@@ -392,6 +457,38 @@ function VolunteersList() {
     setError('');
   };
 
+  const downloadExcel = () => {
+    try {
+      const excelData = volunteers.map((u) => ({
+        'Name': u.name || '',
+        'Email': u.email || '',
+        'Phone': u.phone || '',
+        'Roles': (u.roles || []).join(', '),
+        'Status': u.status,
+        'Volunteer Hours': u.totalHoursVolunteer || 0,
+        'Training Hours': u.totalHoursStudent || 0,
+        'Certificates': (u.certificates || []).length,
+        'Date of Birth': u.dob || '',
+        'Gender': u.gender || '',
+        'Address': u.address || '',
+        'Race': u.race || '',
+        'Religion': u.religion || '',
+        'Citizenship': u.citizenship || '',
+        'Blood Type': u.bloodType || '',
+        'Emergency Contact': u.emergencyName || '',
+        'Emergency Number': u.emergencyContact || '',
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Volunteers');
+      XLSX.writeFile(wb, `volunteers_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } catch (error) {
+      console.error('Error downloading Excel:', error);
+      alert('Error downloading Excel file');
+    }
+  };
+
   const censorText = (text) => {
     if (!text) return '—';
     return '*'.repeat(text.length);
@@ -403,7 +500,12 @@ function VolunteersList() {
 
   return (
     <div>
-      <h5>Volunteers ({volunteers.length})</h5>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h5 className="mb-0">Volunteers ({volunteers.length})</h5>
+        <button className="btn btn-success btn-sm" onClick={downloadExcel}>
+          📊 Download Excel
+        </button>
+      </div>
       <p className="text-secondary small">Volunteers are users with 'Volunteer', 'Volunteer Leader', or 'Manager' roles.</p>
       
       {volunteers.length === 0 ? (
@@ -442,7 +544,7 @@ function VolunteersList() {
         </div>
       )}
 
-      {/* Volunteer Details Modal */}
+      {/* Volunteer Details Modal - same as students */}
       {selectedVolunteer && !showUncensored && (
         <div style={{
           position: 'fixed',
@@ -520,7 +622,6 @@ function VolunteersList() {
         </div>
       )}
 
-      {/* Uncensored View */}
       {showUncensored && selectedVolunteer && (
         <div style={{
           position: 'fixed',
@@ -593,7 +694,6 @@ function Certificates() {
   const [showDrop, setShowDrop] = useState(false);
   const wrapRef = useRef(null);
 
-  // Load all approved members once per session, then filter client-side.
   useEffect(() => {
     cachedQuery('admin:users:approved', async () => {
       const snap = await getDocs(query(
@@ -605,7 +705,6 @@ function Certificates() {
     }).then(setAllUsers);
   }, []);
 
-  // Close dropdown when clicking outside.
   useEffect(() => {
     const onDown = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowDrop(false); };
     document.addEventListener('mousedown', onDown);
@@ -643,9 +742,41 @@ function Certificates() {
     } catch (e) { setMsg(e.message); }
   };
 
+  // Download certificates list as Excel
+  const downloadExcel = () => {
+    try {
+      const excelData = allUsers
+        .filter(u => u.certificates && u.certificates.length > 0)
+        .map((u) => ({
+          'Name': u.name || '',
+          'Email': u.email || '',
+          'Number of Certificates': (u.certificates || []).length,
+          'Certificate URLs': (u.certificates || []).join(', '),
+        }));
+
+      if (excelData.length === 0) {
+        alert('No certificates found to export.');
+        return;
+      }
+
+      const ws = XLSX.utils.json_to_sheet(excelData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Certificates');
+      XLSX.writeFile(wb, `certificates_${new Date().toISOString().slice(0,10)}.xlsx`);
+    } catch (error) {
+      console.error('Error downloading Excel:', error);
+      alert('Error downloading Excel file');
+    }
+  };
+
   return (
     <div className="col-lg-7">
-      <h5>Issue a certificate</h5>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h5 className="mb-0">Issue a certificate</h5>
+        <button className="btn btn-success btn-sm" onClick={downloadExcel}>
+          📊 Download Excel
+        </button>
+      </div>
       {msg && <div className="alert alert-info py-2">{msg}</div>}
 
       <label className="form-label">Find member by name or email</label>

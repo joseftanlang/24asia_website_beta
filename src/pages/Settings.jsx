@@ -516,13 +516,13 @@ export default function Settings() {
                     ))}
                   </div>
                   <div className="mt-2">
-                    <span className="text-secondary small">Current role: </span>
+                    <span className="text-secondary small">Current title: </span>
                     <span className={`badge ${roleBadge.color} fs-6 px-3 py-2`}>{roleBadge.label}</span>
                   </div>
                   {profile.roles?.includes('Manager') && (
                     <div className="mt-2">
                       <span className="badge bg-danger">Manager</span>
-                      <span className="text-secondary small ms-2">(Manager role is assigned by admin)</span>
+                      <span className="text-secondary small ms-2">(Manager title is assigned by admin)</span>
                     </div>
                   )}
                 </div>
@@ -597,7 +597,7 @@ export default function Settings() {
             </div>
             <div className="fw-semibold mb-1">{profile.name}</div>
 
-            <div className="text-secondary small mb-2">Role: {profile.roles?.join(' , ')}</div>
+            <div className="text-secondary small mb-2">Title: {profile.roles?.join(' , ')}</div>
             <div className="text-muted small mb-2" style={{ fontFamily: 'monospace', letterSpacing: '1px' }}>
               ID: {volunteerId}
             </div>
