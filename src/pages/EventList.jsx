@@ -13,7 +13,6 @@ import EventDetailsModal from '../components/EventDetailsModal';
 
 const PAGE_SIZES = [12, 18, 24, 30];
 
-// Open external links from rendered markdown safely in a new tab.
 const mdComponents = {
   a: ({ node, ...props }) => <a target="_blank" rel="noopener noreferrer" {...props} />,
 };
@@ -50,10 +49,10 @@ export default function EventList({ type }) {
   const [pageSize, setPageSize] = useState(12);
   const [loaded, setLoaded] = useState(false);
   const [activeEvent, setActiveEvent] = useState(null);
+  const [showCalendarPrompt, setShowCalendarPrompt] = useState(null);
 
   const title = type === 'training' ? 'Trainings' : 'Events';
 
-  // One-time per session: my registrations across everything.
   useEffect(() => {
     if (!user) return;
     cachedQuery(`regs:user:${user.uid}`, async () => {
@@ -100,6 +99,43 @@ export default function EventList({ type }) {
       || (ev.description || '').toLowerCase().includes(s));
   }, [items, search]);
 
+  // Google Calendar function
+  const addToGoogleCalendar = (event) => {
+    try {
+      let startDate;
+      if (event.dateTime?.toDate) {
+        startDate = event.dateTime.toDate();
+      } else if (event.dateTime) {
+        startDate = new Date(event.dateTime);
+      } else {
+        startDate = new Date();
+      }
+      
+      const endDate = new Date(startDate.getTime() + (event.hours || 1) * 60 * 60 * 1000);
+      
+      const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}${month}${day}T${hours}${minutes}${seconds}Z`;
+      };
+      
+      const startStr = formatDate(startDate);
+      const endStr = formatDate(endDate);
+      
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${startStr}/${endStr}&details=${encodeURIComponent(event.description || 'Event details')}&location=${encodeURIComponent(event.location || '')}&sf=true&output=xml`;
+      
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Calendar error:', error);
+      alert('Unable to open Google Calendar. Please add it manually.');
+    }
+  };
+
+  // Register function with Google Calendar prompt
   const register = async (ev, asVolunteer) => {
     setBusy(ev.id);
     try {
@@ -120,11 +156,15 @@ export default function EventList({ type }) {
       await setDoc(doc(db, 'registrations', id), data);
       setMyRegs((m) => ({ ...m, [ev.id]: { id, ...data, status: 'pending' } }));
       invalidate(`regs:user:${user.uid}`);
+      
+      // Show Google Calendar prompt after registration
+      setShowCalendarPrompt(ev);
     } catch (e) {
       alert(e.message);
     } finally { setBusy(''); }
   };
 
+  // Cancel function - unchanged
   const cancel = async (ev) => {
     const reg = myRegs[ev.id];
     if (!reg) return;
@@ -140,7 +180,6 @@ export default function EventList({ type }) {
     } catch (e) { alert(e.message); } finally { setBusy(''); }
   };
 
-  // Helper: stop card click from firing when action buttons are tapped.
   const stop = (e) => e.stopPropagation();
 
   return (
@@ -279,6 +318,73 @@ export default function EventList({ type }) {
       )}
 
       <EventDetailsModal event={activeEvent} show={!!activeEvent} onClose={() => setActiveEvent(null)} />
+
+      {/* Google Calendar Prompt Modal */}
+      {showCalendarPrompt && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }} onClick={() => setShowCalendarPrompt(null)}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            maxWidth: '480px',
+            width: '100%',
+            padding: '24px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h5 style={{ margin: 0, fontWeight: 600 }}>📅 Add to Google Calendar?</h5>
+              <button 
+                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#666' }}
+                onClick={() => setShowCalendarPrompt(null)}
+              >
+                ×
+              </button>
+            </div>
+            <p>You've successfully registered for <strong>{showCalendarPrompt.title}</strong>!</p>
+            <p style={{ fontSize: '0.9rem', color: '#6c757d' }}>⏳ Your registration is pending admin approval.</p>
+            <p>Would you like to add this event to your Google Calendar?</p>
+            <div style={{ 
+              padding: '12px', 
+              background: '#f8f9fa', 
+              borderRadius: '8px', 
+              fontSize: '0.9rem',
+              marginBottom: '16px'
+            }}>
+              <div>📅 {fmtDate(showCalendarPrompt.dateTime)}</div>
+              <div>⏱ {showCalendarPrompt.hours} hour{showCalendarPrompt.hours === 1 ? '' : 's'}</div>
+              {showCalendarPrompt.location && <div>📍 {showCalendarPrompt.location}</div>}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button 
+                style={{ padding: '8px 20px', background: '#6c757d', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                onClick={() => setShowCalendarPrompt(null)}
+              >
+                Skip
+              </button>
+              <button 
+                style={{ padding: '8px 20px', background: '#0d6efd', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+                onClick={() => {
+                  addToGoogleCalendar(showCalendarPrompt);
+                  setShowCalendarPrompt(null);
+                }}
+              >
+                📅 Add to Calendar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

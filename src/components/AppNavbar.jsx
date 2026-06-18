@@ -22,7 +22,7 @@ export default function AppNavbar() {
           </ul>
           <ul className="navbar-nav">
             <li className="nav-item">
-              <NavLink className="nav-link d-flex align-items-center gap-2" to="/profile">
+              <NavLink className="nav-link d-flex align-items-center gap-2" to="/settings">
                 {profile?.photoUrl
                   ? <img src={profile.photoUrl} alt="" width="28" height="28" className="rounded-circle object-fit-cover border border-danger" />
                   : <span className="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center text-white" style={{ width: 28, height: 28, fontSize: 13 }}>{(profile?.name || '?').charAt(0).toUpperCase()}</span>}
