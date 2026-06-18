@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function isManager() {
+      return signedIn() &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.roles.hasAny(['Manager']);
+    }
+
+    // Profile photos: owner writes, anyone signed-in reads. Max 2 MB images.
+    match /profilePhotos/{uid}/{file} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Event images: managers write. Max 3 MB.
+    match /eventImages/{eventId}/{file} {
+      allow read: if true;
+      allow write: if isManager()
+        && request.resource.size < 3 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Certificates: managers upload PDFs; the named user (or a manager) reads.
+    match /certificates/{uid}/{file} {
+      allow read: if signedIn() && (request.auth.uid == uid || isManager());
+      allow write: if isManager()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+  }
+}

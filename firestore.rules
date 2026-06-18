@@ -1,0 +1,136 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isApproved() {
+      return signedIn() && me().status == 'approved';
+    }
+
+    function isManager() {
+      return signedIn() && me().status == 'approved' && me().roles.hasAny(['Manager']);
+    }
+
+    // Fields a user may NEVER set/change on their own profile.
+    function profileLockedFieldsUnchanged() {
+      return request.resource.data.status == resource.data.status
+        && request.resource.data.totalHoursVolunteer == resource.data.totalHoursVolunteer
+        && request.resource.data.totalHoursStudent == resource.data.totalHoursStudent
+        && request.resource.data.attendedEventIds == resource.data.attendedEventIds
+        && request.resource.data.certificates == resource.data.certificates;
+    }
+
+    // Users may hold only self-assignable roles (Manager is granted by managers).
+    function selfRolesAllowed() {
+      return request.resource.data.roles.hasOnly(['Volunteer', 'Student']);
+    }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      // Any approved member can read a single profile (needed so scanners can
+      // show the scanned person's name/photo). Listing all users = managers only.
+      allow get: if signedIn() && (request.auth.uid == uid || isApproved());
+      allow list: if isManager();
+
+      // First login: create own doc, always pending, no Manager role, zeroed stats.
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.status == 'pending'
+        && selfRolesAllowed()
+        && request.resource.data.totalHoursVolunteer == 0
+        && request.resource.data.totalHoursStudent == 0
+        && request.resource.data.attendedEventIds == []
+        && request.resource.data.certificates == [];
+
+      // Self-edit: profile fields, theme, pushToken, Volunteer/Student roles.
+      allow update: if signedIn()
+        && request.auth.uid == uid
+        && profileLockedFieldsUnchanged()
+        && selfRolesAllowed();
+
+      // Managers: approve users, assign any roles, attach certificates.
+      allow update: if isManager();
+      allow delete: if false;
+    }
+
+    // ---------- events ----------
+    match /events/{eventId} {
+      allow read: if signedIn();
+      allow create, update: if isManager();
+      allow delete: if isManager();
+    }
+
+    // ---------- registrations ----------
+    // Doc id is always "<eventId>_<userId>" so duplicates are impossible.
+    match /registrations/{regId} {
+      function isOwner() {
+        return signedIn() && resource.data.userId == request.auth.uid;
+      }
+
+      // Does the requester hold an approved 'volunteer' registration for this event?
+      function isEventScanner(eventId) {
+        return signedIn()
+          && exists(/databases/$(database)/documents/registrations/$(eventId + '_' + request.auth.uid))
+          && get(/databases/$(database)/documents/registrations/$(eventId + '_' + request.auth.uid)).data.status == 'approved'
+          && get(/databases/$(database)/documents/registrations/$(eventId + '_' + request.auth.uid)).data.role == 'volunteer';
+      }
+
+      allow get: if isOwner() || isManager() || isEventScanner(resource.data.eventId);
+      allow list: if isManager() || (signedIn() && resource.data.userId == request.auth.uid);
+
+      // Apply: approved members only, on an OPEN event, always pending, fixed id.
+      allow create: if isApproved()
+        && request.resource.data.userId == request.auth.uid
+        && regId == request.resource.data.eventId + '_' + request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.role in ['attendee', 'volunteer']
+        && get(/databases/$(database)/documents/events/$(request.resource.data.eventId)).data.status == 'open';
+
+      // Self-cancel: only while still pending. Approved cancellations go via a manager
+      // (so the event's approvedCount stays correct).
+      allow update: if isOwner()
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.eventId == resource.data.eventId;
+
+      // Managers: approve / reject / mark volunteer role, etc.
+      allow update: if isManager();
+      allow delete: if false;
+    }
+
+    // ---------- attendance ----------
+    // Doc id is always "<eventId>_<userId>" -> re-scans are idempotent overwrite-blocked.
+    match /attendance/{attId} {
+      function regApproved(eventId, userId) {
+        return get(/databases/$(database)/documents/registrations/$(eventId + '_' + userId)).data.status == 'approved';
+      }
+      function scannerIsVolunteer(eventId) {
+        return exists(/databases/$(database)/documents/registrations/$(eventId + '_' + request.auth.uid))
+          && get(/databases/$(database)/documents/registrations/$(eventId + '_' + request.auth.uid)).data.status == 'approved'
+          && get(/databases/$(database)/documents/registrations/$(eventId + '_' + request.auth.uid)).data.role == 'volunteer';
+      }
+
+      allow get: if signedIn();
+      allow list: if isManager() || signedIn(); // members may list their own scans (filtered client-side by query)
+
+      allow create: if signedIn()
+        && attId == request.resource.data.eventId + '_' + request.resource.data.userId
+        && request.resource.data.scannedByVolunteerId == request.auth.uid
+        && regApproved(request.resource.data.eventId, request.resource.data.userId)
+        && (isManager() || scannerIsVolunteer(request.resource.data.eventId));
+
+      // Immutable audit log.
+      allow update, delete: if false;
+    }
+  }
+}
