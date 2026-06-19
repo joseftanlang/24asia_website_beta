@@ -159,9 +159,14 @@ export default function Settings() {
     return '#ffc107';
   };
 
-  // Generate Volunteer ID
-  // Generate Volunteer ID based on registration date
-  const generateVolunteerId = () => {
+  // Check if user is Volunteer or above
+  const isVolunteerOrAbove = () => {
+    const roles = getRoles();
+    return roles.includes('Volunteer') || roles.includes('Volunteer Leader') || roles.includes('Manager');
+  };
+
+  // Generate SID (Student ID) - based on registration date + random 4 digits (NUMBERS ONLY)
+  const generateSID = () => {
     let registrationDate;
     if (profile?.createdAt?.toDate) {
       registrationDate = profile.createdAt.toDate();
@@ -176,12 +181,23 @@ export default function Settings() {
     const day = String(registrationDate.getDate()).padStart(2, '0');
     const dateStr = `${year}${month}${day}`;
 
-    // use a random 4-digit number
+    // Use a random 4-digit number instead of UID
     const randomNum = String(Math.floor(Math.random() * 9000) + 1000);
     return `${dateStr}${randomNum}`;
   };
 
-  const volunteerId = generateVolunteerId();
+  // Generate VID (Volunteer ID)
+  const generateVID = () => {
+    if (profile?.vid) {
+      return String(profile.vid).padStart(5, '0');
+    }
+    const timestamp = Date.now().toString();
+    const num = timestamp.slice(-5);
+    return num.padStart(5, '0');
+  };
+
+  const sid = generateSID();
+  const vid = generateVID();
 
   const onInstall = async () => {
     const outcome = await promptInstall();
@@ -275,7 +291,8 @@ export default function Settings() {
         profileText: form.profileText.trim(),
         interests: form.interests.split(',').map((s) => s.trim()).filter(Boolean),
         roles,
-        volunteerId: volunteerId, // Save volunteer ID to profile
+        sid: sid,
+        vid: vid,
       };
       const writeData = { ...updates, lastUpdatedAt: serverTimestamp() };
       if (profile?.onboardingComplete !== true) writeData.onboardingComplete = true;
@@ -344,6 +361,11 @@ export default function Settings() {
 
   const roleBadge = getRoleBadge();
   const roleColor = getRoleColor();
+  const isVolunteer = isVolunteerOrAbove();
+
+  // Get display title - use profile.title if available, otherwise use role
+  const displayTitle = profile?.title || roleBadge.label;
+  const displayDepartment = profile?.department || '';
 
   return (
     <div className="settings-container">
@@ -352,22 +374,23 @@ export default function Settings() {
 
       <div className="row g-4">
         <div className="col-12 col-lg-7">
-          <div className="card p-4">
+          <div className="card p-4" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
             {/* Collapsible Header for Mobile */}
             <div
-              className="d-flex d-lg-none justify-content-between align-items-center cursor-pointer"
+              className="d-flex d-lg-none justify-content-between align-items-center"
               onClick={() => setIsCollapsed(!isCollapsed)}
-              style={{ cursor: 'pointer' }}
+              style={{ cursor: 'pointer', padding: '8px 0' }}
             >
               <h5 className="mb-0">Profile Information</h5>
-              <span style={{ fontSize: '1.5rem' }}>
-                {isCollapsed ? '▼' : '▲'}
+              <span style={{ fontSize: '1.5rem', transition: 'transform 0.3s ease', transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)' }}>
+                ▼
               </span>
             </div>
 
-            {/* Always visible on desktop, collapsible on mobile */}
+            {/* Content */}
             <div style={{
-              display: window.innerWidth >= 992 ? 'block' : (isCollapsed ? 'none' : 'block')
+              display: window.innerWidth >= 992 ? 'block' : (isCollapsed ? 'none' : 'block'),
+              transition: 'all 0.3s ease'
             }}>
               <h5 className="mb-3 d-none d-lg-block">Profile Information</h5>
               <div className="row g-3">
@@ -379,7 +402,7 @@ export default function Settings() {
                     ) : (
                       <div className="profile-photo-placeholder">{(profile.name || '?').charAt(0).toUpperCase()}</div>
                     )}
-                    <label className="btn btn-outline-secondary">
+                    <label className="btn btn-outline-secondary" style={{ borderRadius: '10px' }}>
                       Change Photo
                       <input type="file" accept="image/*" hidden onChange={uploadPhoto} />
                     </label>
@@ -388,7 +411,7 @@ export default function Settings() {
 
                 <div className="col-md-6">
                   <label className="form-label">Full Name</label>
-                  <input className="form-control" value={form.name} onChange={set('name')} />
+                  <input className="form-control" value={form.name} onChange={set('name')} style={{ borderRadius: '10px' }} />
                 </div>
 
                 <div className="col-md-6">
@@ -398,7 +421,7 @@ export default function Settings() {
                       className="form-select"
                       value={form.phoneCode}
                       onChange={set('phoneCode')}
-                      style={{ width: '120px', flexShrink: 0 }}
+                      style={{ width: '120px', flexShrink: 0, borderRadius: '10px' }}
                     >
                       {countryCodes.map((c) => (
                         <option key={c.code} value={c.code}>{c.code}</option>
@@ -409,18 +432,19 @@ export default function Settings() {
                       value={form.phoneNumber}
                       onChange={set('phoneNumber')}
                       placeholder="Phone number"
+                      style={{ borderRadius: '10px' }}
                     />
                   </div>
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label">Date of Birth</label>
-                  <input type="date" className="form-control" value={form.dob} onChange={set('dob')} />
+                  <input type="date" className="form-control" value={form.dob} onChange={set('dob')} style={{ borderRadius: '10px' }} />
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label">Gender</label>
-                  <select className="form-select" value={form.gender} onChange={set('gender')}>
+                  <select className="form-select" value={form.gender} onChange={set('gender')} style={{ borderRadius: '10px' }}>
                     <option value="male">Male</option>
                     <option value="female">Female</option>
                     <option value="other">Other</option>
@@ -430,12 +454,12 @@ export default function Settings() {
 
                 <div className="col-md-12">
                   <label className="form-label">Address</label>
-                  <input className="form-control" value={form.address} onChange={set('address')} placeholder="Enter your address" />
+                  <input className="form-control" value={form.address} onChange={set('address')} placeholder="Enter your address" style={{ borderRadius: '10px' }} />
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label">Race</label>
-                  <select className="form-select" value={form.race} onChange={set('race')}>
+                  <select className="form-select" value={form.race} onChange={set('race')} style={{ borderRadius: '10px' }}>
                     <option value="">Select race</option>
                     {races.map((r) => (
                       <option key={r} value={r}>{r}</option>
@@ -447,13 +471,14 @@ export default function Settings() {
                       value={form.customRace}
                       onChange={set('customRace')}
                       placeholder="Please specify your race"
+                      style={{ borderRadius: '10px' }}
                     />
                   )}
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label">Religion</label>
-                  <select className="form-select" value={form.religion} onChange={set('religion')}>
+                  <select className="form-select" value={form.religion} onChange={set('religion')} style={{ borderRadius: '10px' }}>
                     <option value="">Select religion</option>
                     {religions.map((r) => (
                       <option key={r} value={r}>{r}</option>
@@ -465,18 +490,19 @@ export default function Settings() {
                       value={form.customReligion}
                       onChange={set('customReligion')}
                       placeholder="Please specify your religion"
+                      style={{ borderRadius: '10px' }}
                     />
                   )}
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label">Citizenship</label>
-                  <input className="form-control" value={form.citizenship} onChange={set('citizenship')} placeholder="e.g. Singaporean" />
+                  <input className="form-control" value={form.citizenship} onChange={set('citizenship')} placeholder="e.g. Singaporean" style={{ borderRadius: '10px' }} />
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label">Blood Type</label>
-                  <select className="form-select" value={form.bloodType} onChange={set('bloodType')}>
+                  <select className="form-select" value={form.bloodType} onChange={set('bloodType')} style={{ borderRadius: '10px' }}>
                     <option value="">Select blood type</option>
                     {bloodTypes.map((b) => (
                       <option key={b} value={b}>{b}</option>
@@ -486,26 +512,26 @@ export default function Settings() {
 
                 <div className="col-md-6">
                   <label className="form-label">Emergency Contact Name</label>
-                  <input className="form-control" value={form.emergencyName} onChange={set('emergencyName')} placeholder="Emergency contact person" />
+                  <input className="form-control" value={form.emergencyName} onChange={set('emergencyName')} placeholder="Emergency contact person" style={{ borderRadius: '10px' }} />
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label">Emergency Contact Number</label>
-                  <input className="form-control" value={form.emergencyContact} onChange={set('emergencyContact')} placeholder="Emergency contact number" />
+                  <input className="form-control" value={form.emergencyContact} onChange={set('emergencyContact')} placeholder="Emergency contact number" style={{ borderRadius: '10px' }} />
                 </div>
 
                 <div className="col-12">
                   <label className="form-label">About Me</label>
-                  <textarea className="form-control" rows="3" value={form.profileText} onChange={set('profileText')} />
+                  <textarea className="form-control" rows="3" value={form.profileText} onChange={set('profileText')} style={{ borderRadius: '10px' }} />
                 </div>
 
                 <div className="col-12">
                   <label className="form-label">Interests (comma separated)</label>
-                  <input className="form-control" value={form.interests} onChange={set('interests')} placeholder="e.g. Teaching, Environment, Youth" />
+                  <input className="form-control" value={form.interests} onChange={set('interests')} placeholder="e.g. Teaching, Environment, Youth" style={{ borderRadius: '10px' }} />
                 </div>
 
                 <div className="col-12">
-                  <label className="form-label d-block">I am a…</label>
+                  {/* <label className="form-label d-block">I am a…</label>
                   <div className="d-flex flex-wrap gap-2">
                     {['Volunteer', 'Volunteer Leader', 'Student'].map((r) => (
                       <div className="form-check form-check-inline" key={r}>
@@ -514,27 +540,21 @@ export default function Settings() {
                         <label className="form-check-label" htmlFor={r}>{r}</label>
                       </div>
                     ))}
-                  </div>
+                  </div> */}
                   <div className="mt-2">
                     <span className="text-secondary small">Current title: </span>
                     <span className={`badge ${roleBadge.color} fs-6 px-3 py-2`}>{roleBadge.label}</span>
                   </div>
-                  {profile.roles?.includes('Manager') && (
-                    <div className="mt-2">
-                      <span className="badge bg-danger">Manager</span>
-                      <span className="text-secondary small ms-2">(Manager title is assigned by admin)</span>
-                    </div>
-                  )}
                 </div>
               </div>
-              <div className="d-flex gap-2 mt-4">
-                <button className="btn btn-brand" disabled={saving} onClick={save}>
-                  {saving ? 'Saving...' : 'Save Changes'}
+              <div className="d-flex gap-2 mt-4 flex-wrap">
+                <button className="btn btn-brand" disabled={saving} onClick={save} style={{ borderRadius: '10px', padding: '10px 28px' }}>
+                  {saving ? 'Saving...' : '💾 Save Changes'}
                 </button>
                 <button
                   className="btn btn-outline-danger"
                   onClick={handleDeleteClick}
-                  style={{ borderColor: '#dc3545', color: '#dc3545' }}
+                  style={{ borderRadius: '10px', padding: '10px 28px', borderColor: '#dc3545', color: '#dc3545' }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = '#dc3545';
                     e.currentTarget.style.color = 'white';
@@ -558,10 +578,14 @@ export default function Settings() {
               borderColor: roleColor,
               borderWidth: '3px',
               borderStyle: 'solid',
-              backgroundColor: roleColor + '15'
+              backgroundColor: roleColor + '15',
+              borderRadius: '16px',
+              border: 'none',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+              transition: 'all 0.3s ease'
             }}
           >
-            <h5 style={{ color: roleColor }}>My check-in QR</h5>
+            <h5 style={{ color: roleColor, fontWeight: 700 }}>My check-in QR</h5>
             <div className="my-2">
               {profile.photoUrl ? (
                 <div
@@ -570,7 +594,8 @@ export default function Settings() {
                     width: 100,
                     height: 100,
                     backgroundColor: roleColor,
-                    padding: '3px'
+                    padding: '3px',
+                    borderRadius: '50%'
                   }}
                 >
                   <img
@@ -579,6 +604,7 @@ export default function Settings() {
                     width="94"
                     height="94"
                     className="rounded-circle object-fit-cover"
+                    style={{ borderRadius: '50%' }}
                   />
                 </div>
               ) : (
@@ -588,25 +614,65 @@ export default function Settings() {
                     width: 96,
                     height: 96,
                     fontSize: 36,
-                    backgroundColor: roleColor
+                    backgroundColor: roleColor,
+                    borderRadius: '50%'
                   }}
                 >
                   {(profile.name || '?').charAt(0).toUpperCase()}
                 </div>
               )}
             </div>
-            <div className="fw-semibold mb-1">{profile.name}</div>
+            <div className="fw-semibold mb-1" style={{ fontSize: '1.1rem' }}>{profile.name}</div>
 
-            <div className="text-secondary small mb-2">Title: {profile.roles?.join(' , ')}</div>
-            <div className="text-muted small mb-2" style={{ fontFamily: 'monospace', letterSpacing: '1px' }}>
-              ID: {volunteerId}
+            {/* Display Title instead of Roles */}
+            {displayTitle && (
+              <div className="mb-1">
+                <span className="badge" style={{
+                  background: roleColor,
+                  color: roleColor === '#ffffff' ? '#212529' : 'white',
+                  padding: '6px 16px',
+                  borderRadius: '20px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600
+                }}>
+                  Title: {displayTitle}
+                </span>
+              </div>
+            )}
+
+            {/* Display Department if available */}
+            {displayDepartment && (
+              <div className="mb-2">
+                <span className="badge" style={{
+                  background: '#6c757d',
+                  color: 'white',
+                  padding: '4px 14px',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem'
+                }}>
+                  Department: {displayDepartment}
+                </span>
+              </div>
+            )}
+
+            <div className="text-muted small mb-1" style={{ fontFamily: 'monospace', letterSpacing: '1px', fontSize: '0.8rem' }}>
+              SID: {sid}
             </div>
-            <p className="small text-secondary">Show this to the event volunteer to record your attendance.</p>
-            <div className="qr-frame mx-auto"><QRCodeSVG value={user.uid} size={180} /></div>
-            <code className="small mt-2">{user.uid}</code>
+
+            {isVolunteer && (
+              <div className="text-muted small mb-2" style={{ fontFamily: 'monospace', letterSpacing: '1px', color: '#ff8c00', fontSize: '0.8rem' }}>
+                VID: {vid}
+              </div>
+            )}
+
+            <p className="small text-secondary" style={{ fontSize: '0.75rem' }}>Show this to the event volunteer to record your attendance.</p>
+            <div className="qr-frame mx-auto" style={{ display: 'inline-block', padding: '8px', background: '#f8f9fa', borderRadius: '12px' }}>
+              <QRCodeSVG value={user.uid} size={180} />
+            </div>
+            <code className="small mt-2" style={{ fontSize: '0.65rem', wordBreak: 'break-all' }}>{user.uid}</code>
           </div>
 
-          <div className="card p-4 mb-4">
+          <div className="card p-4 mb-4" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
             <h5 className="mb-3">App Settings</h5>
             <div className="settings-item">
               <div className="d-flex justify-content-between align-items-center">
@@ -614,7 +680,7 @@ export default function Settings() {
                   <div className="fw-semibold">Theme</div>
                   <div className="text-secondary small">Switch between light and dark mode</div>
                 </div>
-                <button className="btn btn-outline-secondary btn-sm" onClick={toggleTheme}>
+                <button className="btn btn-outline-secondary btn-sm" onClick={toggleTheme} style={{ borderRadius: '8px' }}>
                   {profile.theme === 'dark' ? '☀️ Light' : '🌙 Dark'}
                 </button>
               </div>
@@ -626,7 +692,7 @@ export default function Settings() {
                   <div className="fw-semibold">Notifications</div>
                   <div className="text-secondary small">Enable push notifications</div>
                 </div>
-                <button className="btn btn-outline-primary btn-sm" onClick={onEnablePush}>🔔 Enable</button>
+                <button className="btn btn-outline-primary btn-sm" onClick={onEnablePush} style={{ borderRadius: '8px' }}>🔔 Enable</button>
               </div>
             </div>
             <hr />
@@ -637,7 +703,7 @@ export default function Settings() {
                   <div className="text-secondary small">Install 24asia as a standalone app</div>
                 </div>
                 {!installed ? (
-                  <button className="btn btn-success btn-sm" onClick={onInstall}>📱 Install</button>
+                  <button className="btn btn-success btn-sm" onClick={onInstall} style={{ borderRadius: '8px' }}>📱 Install</button>
                 ) : (
                   <span className="badge bg-success">✅ Installed</span>
                 )}
@@ -655,16 +721,35 @@ export default function Settings() {
             )}
           </div>
 
-          <div className="card p-4">
+          <div className="card p-4" style={{ borderRadius: '16px', border: 'none', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
             <h5 className="mb-3">Account</h5>
             <div className="settings-item">
               <div className="text-secondary small">Email</div>
               <div className="fw-semibold">{profile.email}</div>
             </div>
             <div className="settings-item mt-2">
-              <div className="text-secondary small">Volunteer ID</div>
-              <div className="fw-semibold" style={{ fontFamily: 'monospace' }}>{volunteerId}</div>
+              <div className="text-secondary small">Title</div>
+              <div className="fw-semibold">{displayTitle}</div>
             </div>
+            {displayDepartment && (
+              <div className="settings-item mt-2">
+                <div className="text-secondary small">Department</div>
+                <div className="fw-semibold">{displayDepartment}</div>
+              </div>
+            )}
+            <div className="settings-item mt-2">
+              <div className="text-secondary small">SID (Student ID)</div>
+              <div className="fw-semibold" style={{ fontFamily: 'monospace' }}>{sid}</div>
+            </div>
+            {isVolunteer && (
+              <div className="settings-item mt-2">
+                <div className="text-secondary small">VID (Volunteer ID)</div>
+                <div className="fw-semibold" style={{ fontFamily: 'monospace', color: '#ff8c00' }}>{vid}</div>
+                <div className="text-secondary small" style={{ fontSize: '0.7rem' }}>
+                  * Admin can assign a custom VID (00001-99999)
+                </div>
+              </div>
+            )}
             <div className="settings-item mt-2">
               <div className="text-secondary small">User ID</div>
               <div className="fw-semibold text-truncate" style={{ fontSize: '0.85rem' }}>{user.uid}</div>

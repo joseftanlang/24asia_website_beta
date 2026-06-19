@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { collection, getDocs, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { getDocsByIds } from '../lib/db';
 
 export default function Champions() {
   const { profile, user } = useAuth();
@@ -14,21 +13,16 @@ export default function Champions() {
   useEffect(() => {
     if (!user) return;
 
-    // Listen for real-time updates to user's profile
     const unsubscribe = onSnapshot(doc(db, 'users', user.uid), async (docSnap) => {
       if (docSnap.exists()) {
         const userData = docSnap.data();
-        // Update certifications from the profile
         const certs = userData.certificates || [];
         setCertifications(certs);
-        
-        // Recalculate awards based on updated data
         await calculateAwards(userData);
         setLoading(false);
       }
     });
 
-    // Initial load
     const loadData = async () => {
       setLoading(true);
       try {
@@ -47,8 +41,6 @@ export default function Champions() {
     };
 
     loadData();
-
-    // Cleanup listener
     return () => unsubscribe();
   }, [user]);
 
@@ -58,7 +50,6 @@ export default function Champions() {
     const certs = userData.certificates || [];
     const eventsAttended = certs.length;
 
-    // Get registrations to count events
     const regsSnap = await getDocs(
       query(collection(db, 'registrations'), where('userId', '==', user.uid))
     );
@@ -66,7 +57,6 @@ export default function Champions() {
     const approvedRegs = registrations.filter(r => r.status === 'approved' || r.status === 'completed');
     const eventsCount = approvedRegs.length;
 
-    // Bronze Award: 10+ hours or 5+ events
     if (totalHours >= 10 || eventsCount >= 5) {
       awardsList.push({
         id: 'bronze',
@@ -79,7 +69,6 @@ export default function Champions() {
       });
     }
 
-    // Silver Award: 25+ hours or 10+ events
     if (totalHours >= 25 || eventsCount >= 10) {
       awardsList.push({
         id: 'silver',
@@ -92,7 +81,6 @@ export default function Champions() {
       });
     }
 
-    // Gold Award: 50+ hours or 20+ events
     if (totalHours >= 50 || eventsCount >= 20) {
       awardsList.push({
         id: 'gold',
@@ -105,7 +93,6 @@ export default function Champions() {
       });
     }
 
-    // Leadership Award
     if (userData?.roles?.includes('Volunteer Leader')) {
       awardsList.push({
         id: 'leadership',
@@ -118,7 +105,6 @@ export default function Champions() {
       });
     }
 
-    // Community Impact Award: 5+ volunteer hours
     if (userData.totalHoursVolunteer >= 5) {
       awardsList.push({
         id: 'community',
@@ -131,7 +117,6 @@ export default function Champions() {
       });
     }
 
-    // Dedication Award: 3+ events attended
     if (eventsCount >= 3) {
       awardsList.push({
         id: 'dedication',
@@ -162,14 +147,14 @@ export default function Champions() {
       return (
         <div style={{
           textAlign: 'center',
-          padding: '60px 20px',
+          padding: '40px 20px',
           background: 'var(--bs-card-bg, white)',
           borderRadius: '16px',
           border: '2px dashed var(--bs-border-color, #dee2e6)'
         }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📜</div>
-          <h5 style={{ color: 'var(--bs-heading-color, #212529)' }}>No Certifications Yet</h5>
-          <p style={{ color: 'var(--bs-secondary-color, #6c757d)' }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>📜</div>
+          <h5 style={{ color: 'var(--bs-heading-color, #212529)', fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>No Certifications Yet</h5>
+          <p style={{ color: 'var(--bs-secondary-color, #6c757d)', fontSize: 'clamp(0.8rem, 2vw, 0.95rem)' }}>
             Complete trainings and events to earn certifications!
           </p>
         </div>
@@ -179,11 +164,11 @@ export default function Champions() {
     return (
       <div className="row g-3">
         {certifications.map((cert, index) => (
-          <div key={index} className="col-12 col-md-6 col-lg-4">
+          <div key={index} className="col-6 col-md-4 col-lg-3">
             <div style={{
               background: 'var(--bs-card-bg, white)',
-              borderRadius: '16px',
-              padding: '20px',
+              borderRadius: '12px',
+              padding: '16px',
               border: '1px solid var(--bs-border-color, #dee2e6)',
               transition: 'all 0.3s ease',
               height: '100%',
@@ -202,29 +187,30 @@ export default function Champions() {
             >
               <div style={{
                 width: '100%',
-                height: '120px',
+                height: '80px',
                 background: 'linear-gradient(135deg, #ffd70022, #ff6b3522)',
-                borderRadius: '12px',
+                borderRadius: '10px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '12px',
-                fontSize: '48px'
+                marginBottom: '10px',
+                fontSize: '36px'
               }}>
                 📄
               </div>
               <h6 style={{ 
                 fontWeight: 600, 
                 color: 'var(--bs-heading-color, #212529)',
-                marginBottom: '4px'
+                marginBottom: '2px',
+                fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)'
               }}>
                 Certificate {index + 1}
               </h6>
               <p style={{ 
-                fontSize: '0.8rem', 
+                fontSize: 'clamp(0.65rem, 1.2vw, 0.75rem)', 
                 color: 'var(--bs-secondary-color, #6c757d)',
                 flex: 1,
-                marginBottom: '12px'
+                marginBottom: '10px'
               }}>
                 🗓 Issued on {new Date().toLocaleDateString()}
               </p>
@@ -233,13 +219,13 @@ export default function Champions() {
                 target="_blank" 
                 rel="noreferrer"
                 style={{
-                  padding: '8px 16px',
+                  padding: '6px 14px',
                   background: 'linear-gradient(135deg, #ffd700, #f0a500)',
                   color: '#0d1117',
                   border: 'none',
                   borderRadius: '8px',
                   textDecoration: 'none',
-                  fontSize: '0.85rem',
+                  fontSize: 'clamp(0.7rem, 1.2vw, 0.8rem)',
                   fontWeight: 600,
                   textAlign: 'center',
                   transition: 'all 0.2s ease'
@@ -261,17 +247,18 @@ export default function Champions() {
       return (
         <div style={{
           textAlign: 'center',
-          padding: '60px 20px',
+          padding: '40px 20px',
           background: 'var(--bs-card-bg, white)',
           borderRadius: '16px',
           border: '2px dashed var(--bs-border-color, #dee2e6)'
         }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏆</div>
-          <h5 style={{ color: 'var(--bs-heading-color, #212529)' }}>No Awards Yet</h5>
-          <p style={{ color: 'var(--bs-secondary-color, #6c757d)' }}>
+          <div style={{ fontSize: '48px', marginBottom: '12px' }}>🏆</div>
+          <h5 style={{ color: 'var(--bs-heading-color, #212529)', fontSize: 'clamp(1rem, 2.5vw, 1.25rem)' }}>No Awards Yet</h5>
+          <p style={{ color: 'var(--bs-secondary-color, #6c757d)', fontSize: 'clamp(0.8rem, 2vw, 0.95rem)' }}>
             Keep volunteering and making an impact to earn awards!
-            <br />
-            <span style={{ fontSize: '0.85rem' }}>💡 Complete events and reach milestones to unlock awards.</span>
+          </p>
+          <p style={{ color: 'var(--bs-secondary-color, #6c757d)', fontSize: 'clamp(0.7rem, 1.5vw, 0.85rem)', marginTop: '4px' }}>
+            💡 Complete events and reach milestones to unlock awards.
           </p>
         </div>
       );
@@ -283,15 +270,15 @@ export default function Champions() {
     return (
       <div className="row g-3">
         {sortedAwards.map((award) => (
-          <div key={award.id} className="col-12 col-md-6 col-lg-4">
+          <div key={award.id} className="col-12 col-sm-6 col-md-4">
             <div style={{
               background: award.tier === 'gold' 
                 ? 'linear-gradient(135deg, #ffd70022, #ffd70011)' 
                 : award.tier === 'silver'
                   ? 'linear-gradient(135deg, #c0c0c022, #c0c0c011)'
                   : 'linear-gradient(135deg, #cd7f3222, #cd7f3211)',
-              borderRadius: '16px',
-              padding: '20px',
+              borderRadius: '14px',
+              padding: '16px',
               border: award.tier === 'gold' 
                 ? '2px solid #ffd70055'
                 : award.tier === 'silver'
@@ -317,55 +304,55 @@ export default function Champions() {
                 position: 'absolute',
                 top: '-20px',
                 right: '-20px',
-                fontSize: '80px',
+                fontSize: '60px',
                 opacity: 0.08
               }}>
                 {award.icon || '🏆'}
               </div>
-              <div style={{ fontSize: '40px', marginBottom: '8px' }}>
+              <div style={{ fontSize: '32px', marginBottom: '6px' }}>
                 {award.icon || '🏆'}
               </div>
               <h6 style={{ 
                 fontWeight: 700, 
                 color: 'var(--bs-heading-color, #212529)',
                 marginBottom: '2px',
-                fontSize: '1rem'
+                fontSize: 'clamp(0.85rem, 1.5vw, 1rem)'
               }}>
                 {award.title}
               </h6>
               <p style={{ 
-                fontSize: '0.8rem', 
+                fontSize: 'clamp(0.7rem, 1.2vw, 0.8rem)', 
                 color: 'var(--bs-secondary-color, #6c757d)',
-                marginBottom: '4px'
+                marginBottom: '2px'
               }}>
                 {award.issuer || '24Asia'}
               </p>
               <p style={{ 
-                fontSize: '0.75rem', 
+                fontSize: 'clamp(0.65rem, 1vw, 0.7rem)', 
                 color: 'var(--bs-secondary-color, #6c757d)',
-                marginBottom: '12px'
+                marginBottom: '8px'
               }}>
                 🗓 {award.date || 'Date TBD'}
               </p>
               {award.description && (
                 <p style={{
-                  fontSize: '0.85rem',
+                  fontSize: 'clamp(0.7rem, 1.2vw, 0.8rem)',
                   color: 'var(--bs-body-color, #212529)',
                   flex: 1,
-                  marginBottom: '12px'
+                  marginBottom: '8px'
                 }}>
                   {award.description}
                 </p>
               )}
               <div style={{
-                padding: '4px 12px',
+                padding: '3px 10px',
                 background: award.tier === 'gold' 
                   ? '#ffd70033' 
                   : award.tier === 'silver'
                     ? '#c0c0c033'
                     : '#cd7f3233',
                 borderRadius: '20px',
-                fontSize: '0.7rem',
+                fontSize: 'clamp(0.6rem, 1vw, 0.7rem)',
                 fontWeight: 600,
                 color: award.tier === 'gold' 
                   ? '#b8860b' 
@@ -395,52 +382,51 @@ export default function Champions() {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 4px' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 8px' }}>
       {/* Header */}
       <div style={{
-        marginBottom: '28px',
-        padding: '24px 20px',
+        marginBottom: '20px',
+        padding: '20px 16px',
         background: 'linear-gradient(135deg, #ffd70022, #ff6b3511)',
-        borderRadius: '20px',
+        borderRadius: '16px',
         border: '1px solid #ffd70033'
       }}>
         <h2 style={{
-          fontSize: '1.8rem',
+          fontSize: 'clamp(1.3rem, 3vw, 1.8rem)',
           fontWeight: 700,
           color: 'var(--bs-heading-color, #212529)',
-          marginBottom: '4px'
+          marginBottom: '2px'
         }}>
           🏆 My Achievements
         </h2>
         <p style={{
           color: 'var(--bs-secondary-color, #6c757d)',
-          fontSize: '0.95rem',
+          fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)',
           marginBottom: 0
         }}>
           Track your certifications and awards earned through your volunteering journey.
         </p>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Mobile Friendly */}
       <div style={{
         display: 'flex',
         gap: '4px',
         background: 'var(--bs-card-bg, white)',
         padding: '4px',
         borderRadius: '14px',
-        marginBottom: '24px',
-        border: '1px solid var(--bs-border-color, #dee2e6)',
-        position: 'relative'
+        marginBottom: '20px',
+        border: '1px solid var(--bs-border-color, #dee2e6)'
       }}>
         <button
           onClick={() => setActiveTab('certifications')}
           style={{
             flex: 1,
-            padding: '12px 20px',
+            padding: '10px 12px',
             border: 'none',
             borderRadius: '12px',
             cursor: 'pointer',
-            fontSize: '0.95rem',
+            fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)',
             fontWeight: 600,
             transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
             background: activeTab === 'certifications' 
@@ -455,16 +441,17 @@ export default function Champions() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '8px'
+            gap: '6px'
           }}
         >
-          <span>📜</span> Certifications
+          <span>📜</span> 
+          <span style={{ display: 'inline' }}>Certifications</span>
           <span style={{
-            fontSize: '0.7rem',
+            fontSize: '0.65rem',
             background: activeTab === 'certifications' 
               ? 'rgba(0,0,0,0.1)' 
               : 'var(--bs-gray-200, #e9ecef)',
-            padding: '2px 10px',
+            padding: '1px 8px',
             borderRadius: '20px',
             color: activeTab === 'certifications' 
               ? 'var(--bs-body-bg, #0d1117)' 
@@ -477,11 +464,11 @@ export default function Champions() {
           onClick={() => setActiveTab('awards')}
           style={{
             flex: 1,
-            padding: '12px 20px',
+            padding: '10px 12px',
             border: 'none',
             borderRadius: '12px',
             cursor: 'pointer',
-            fontSize: '0.95rem',
+            fontSize: 'clamp(0.8rem, 1.5vw, 0.95rem)',
             fontWeight: 600,
             transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
             background: activeTab === 'awards' 
@@ -496,16 +483,17 @@ export default function Champions() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '8px'
+            gap: '6px'
           }}
         >
-          <span>🏆</span> Awards
+          <span>🏆</span> 
+          <span style={{ display: 'inline' }}>Awards</span>
           <span style={{
-            fontSize: '0.7rem',
+            fontSize: '0.65rem',
             background: activeTab === 'awards' 
               ? 'rgba(0,0,0,0.1)' 
               : 'var(--bs-gray-200, #e9ecef)',
-            padding: '2px 10px',
+            padding: '1px 8px',
             borderRadius: '20px',
             color: activeTab === 'awards' 
               ? 'var(--bs-body-bg, #0d1117)' 

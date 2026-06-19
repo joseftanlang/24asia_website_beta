@@ -11,6 +11,42 @@ import * as XLSX from 'xlsx';
 
 const TABS = ['Users', 'Manage events', 'Students', 'Volunteers', 'Certificates', 'Maintenance'];
 
+// Departments List
+const DEPARTMENTS = [
+  'Social Media',
+  'Information Technology',
+  'Events',
+  'Training',
+  'Graphic',
+  'Photography',
+  'Human Resource & Admin',
+  'Finance',
+  'Board of Director',
+  'Management',
+  'Student'
+];
+
+// Titles List
+const TITLES = [
+  'Student',
+  'President',
+  'Founder',
+  'Vice-president',
+  'Team Lead',
+  'Assistant Team Lead',
+  'Social Media volunteer',
+  'Information Technology volunteer',
+  'Events volunteer',
+  'Training volunteer',
+  'Graphic volunteer',
+  'Photography volunteer',
+  'Human Resource & Admin volunteer',
+  'Finance volunteer',
+  'Ambassador',
+  'Advisor',
+  'Patron'
+];
+
 export default function Admin() {
   const [tab, setTab] = useState('Users');
   return (
@@ -260,7 +296,7 @@ function StudentsList() {
         </div>
       )}
 
-      {/* Student Details Modal - same as before */}
+      {/* Student Details Modal */}
       {selectedStudent && !showUncensored && (
         <div style={{
           position: 'fixed',
@@ -400,7 +436,7 @@ function StudentsList() {
   );
 }
 
-/* ---------------- Volunteers List ---------------- */
+/* ---------------- Volunteers List with Edit ---------------- */
 function VolunteersList() {
   const [volunteers, setVolunteers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -408,6 +444,12 @@ function VolunteersList() {
   const [password, setPassword] = useState('');
   const [showUncensored, setShowUncensored] = useState(false);
   const [error, setError] = useState('');
+  
+  // Edit states
+  const [editingVolunteer, setEditingVolunteer] = useState(null);
+  const [editForm, setEditForm] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
+  const [editMessage, setEditMessage] = useState('');
 
   const loadVolunteers = async () => {
     setLoading(true);
@@ -455,6 +497,80 @@ function VolunteersList() {
     setShowUncensored(false);
     setPassword('');
     setError('');
+    setEditingVolunteer(null);
+    setEditMessage('');
+  };
+
+  // Start editing a volunteer
+  const startEditing = (volunteer) => {
+    setEditingVolunteer(volunteer);
+    setEditForm({
+      name: volunteer.name || '',
+      email: volunteer.email || '',
+      phone: volunteer.phone || '',
+      roles: volunteer.roles || [],
+      vid: volunteer.vid || '',
+      department: volunteer.department || '',
+      title: volunteer.title || '',
+      status: volunteer.status || 'approved',
+      totalHoursVolunteer: volunteer.totalHoursVolunteer || 0,
+      totalHoursStudent: volunteer.totalHoursStudent || 0,
+    });
+    setEditMessage('');
+  };
+
+  // Handle form input changes
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  // Handle role toggle in edit
+  const toggleEditRole = (role) => {
+    setEditForm(prev => ({
+      ...prev,
+      roles: prev.roles.includes(role) 
+        ? prev.roles.filter(r => r !== role) 
+        : [...prev.roles, role]
+    }));
+  };
+
+  // Save edited volunteer
+  const saveEdit = async () => {
+    setEditLoading(true);
+    setEditMessage('');
+    try {
+      const updates = {
+        name: editForm.name.trim(),
+        phone: editForm.phone.trim(),
+        roles: editForm.roles,
+        vid: editForm.vid.trim(),
+        department: editForm.department,
+        title: editForm.title,
+        status: editForm.status,
+        totalHoursVolunteer: Number(editForm.totalHoursVolunteer) || 0,
+        totalHoursStudent: Number(editForm.totalHoursStudent) || 0,
+        lastUpdatedAt: new Date(),
+      };
+      
+      await updateDoc(doc(db, 'users', editingVolunteer.id), updates);
+      
+      setEditMessage('✅ Volunteer updated successfully!');
+      setEditLoading(false);
+      
+      // Refresh the list
+      await loadVolunteers();
+      
+      // Close edit mode after 1.5 seconds
+      setTimeout(() => {
+        setEditingVolunteer(null);
+        setEditMessage('');
+      }, 1500);
+    } catch (error) {
+      console.error('Error updating volunteer:', error);
+      setEditMessage('❌ Error updating volunteer: ' + error.message);
+      setEditLoading(false);
+    }
   };
 
   const downloadExcel = () => {
@@ -464,6 +580,9 @@ function VolunteersList() {
         'Email': u.email || '',
         'Phone': u.phone || '',
         'Roles': (u.roles || []).join(', '),
+        'VID': u.vid || 'Not assigned',
+        'Department': u.department || 'Not assigned',
+        'Title': u.title || 'Not assigned',
         'Status': u.status,
         'Volunteer Hours': u.totalHoursVolunteer || 0,
         'Training Hours': u.totalHoursStudent || 0,
@@ -518,8 +637,9 @@ function VolunteersList() {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Phone</th>
-                <th>Roles</th>
-                <th>Action</th>
+                <th>Department</th>
+                <th>Title</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -528,13 +648,20 @@ function VolunteersList() {
                   <td>{u.name || '(no name)'}</td>
                   <td>{u.email}</td>
                   <td>{u.phone || '—'}</td>
-                  <td>{(u.roles || []).join(', ')}</td>
+                  <td><span className="badge bg-info">{u.department || 'Not assigned'}</span></td>
+                  <td><span className="badge bg-secondary">{u.title || 'Not assigned'}</span></td>
                   <td>
                     <button 
-                      className="btn btn-sm btn-outline-primary" 
+                      className="btn btn-sm btn-outline-primary me-1" 
                       onClick={() => setSelectedVolunteer(u)}
                     >
-                      View Details
+                      👁️ View
+                    </button>
+                    <button 
+                      className="btn btn-sm btn-outline-warning" 
+                      onClick={() => startEditing(u)}
+                    >
+                      ✏️ Edit
                     </button>
                   </td>
                 </tr>
@@ -544,7 +671,210 @@ function VolunteersList() {
         </div>
       )}
 
-      {/* Volunteer Details Modal - same as students */}
+      {/* Edit Volunteer Modal */}
+      {editingVolunteer && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px',
+          overflowY: 'auto'
+        }} onClick={() => {}}>
+          <div style={{
+            backgroundColor: 'var(--bs-card-bg, white)',
+            borderRadius: '16px',
+            maxWidth: '650px',
+            width: '100%',
+            padding: '32px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+            position: 'relative',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h5>✏️ Edit Volunteer</h5>
+              <button 
+                style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#666' }}
+                onClick={() => {
+                  setEditingVolunteer(null);
+                  setEditMessage('');
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {editMessage && (
+              <div className={`alert ${editMessage.includes('✅') ? 'alert-success' : 'alert-danger'} py-2`}>
+                {editMessage}
+              </div>
+            )}
+
+            <div className="row g-3">
+              <div className="col-12">
+                <label className="form-label">Full Name</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  name="name"
+                  value={editForm.name || ''} 
+                  onChange={handleEditChange}
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Email</label>
+                <input 
+                  type="email" 
+                  className="form-control" 
+                  name="email"
+                  value={editForm.email || ''} 
+                  onChange={handleEditChange}
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Phone</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  name="phone"
+                  value={editForm.phone || ''} 
+                  onChange={handleEditChange}
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">VID (Volunteer ID) - 00001 to 99999</label>
+                <input 
+                  type="text" 
+                  className="form-control" 
+                  name="vid"
+                  value={editForm.vid || ''} 
+                  onChange={handleEditChange}
+                  placeholder="Enter 5-digit number (e.g., 00001)"
+                  maxLength="5"
+                />
+                <div className="text-secondary small">Leave blank to keep current or auto-generate</div>
+              </div>
+
+              <div className="col-6">
+                <label className="form-label">Department</label>
+                <select 
+                  className="form-select" 
+                  name="department"
+                  value={editForm.department || ''} 
+                  onChange={handleEditChange}
+                >
+                  <option value="">Select Department</option>
+                  {DEPARTMENTS.map((dept) => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-6">
+                <label className="form-label">Title</label>
+                <select 
+                  className="form-select" 
+                  name="title"
+                  value={editForm.title || ''} 
+                  onChange={handleEditChange}
+                >
+                  <option value="">Select Title</option>
+                  {TITLES.map((title) => (
+                    <option key={title} value={title}>{title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Roles</label>
+                <div className="d-flex flex-wrap gap-2">
+                  {['Volunteer', 'Volunteer Leader', 'Manager', 'Student'].map((role) => (
+                    <div className="form-check form-check-inline" key={role}>
+                      <input 
+                        className="form-check-input" 
+                        type="checkbox" 
+                        id={`edit-role-${role}`}
+                        checked={editForm.roles?.includes(role) || false} 
+                        onChange={() => toggleEditRole(role)}
+                      />
+                      <label className="form-check-label" htmlFor={`edit-role-${role}`}>{role}</label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="col-6">
+                <label className="form-label">Volunteer Hours</label>
+                <input 
+                  type="number" 
+                  className="form-control" 
+                  name="totalHoursVolunteer"
+                  value={editForm.totalHoursVolunteer || 0} 
+                  onChange={handleEditChange}
+                  min="0"
+                />
+              </div>
+
+              <div className="col-6">
+                <label className="form-label">Training Hours</label>
+                <input 
+                  type="number" 
+                  className="form-control" 
+                  name="totalHoursStudent"
+                  value={editForm.totalHoursStudent || 0} 
+                  onChange={handleEditChange}
+                  min="0"
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">Account Status</label>
+                <select 
+                  className="form-select" 
+                  name="status"
+                  value={editForm.status || 'approved'} 
+                  onChange={handleEditChange}
+                >
+                  <option value="approved">Approved</option>
+                  <option value="pending">Pending</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => {
+                  setEditingVolunteer(null);
+                  setEditMessage('');
+                }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={saveEdit}
+                disabled={editLoading}
+              >
+                {editLoading ? 'Saving...' : '💾 Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Details Modal */}
       {selectedVolunteer && !showUncensored && (
         <div style={{
           position: 'fixed',
@@ -582,6 +912,9 @@ function VolunteersList() {
               <p><strong>Name:</strong> {censorText(selectedVolunteer.name)}</p>
               <p><strong>Email:</strong> {censorText(selectedVolunteer.email)}</p>
               <p><strong>Phone:</strong> {censorText(selectedVolunteer.phone)}</p>
+              <p><strong>VID:</strong> {selectedVolunteer.vid || 'Not assigned'}</p>
+              <p><strong>Department:</strong> {selectedVolunteer.department || 'Not assigned'}</p>
+              <p><strong>Title:</strong> {selectedVolunteer.title || 'Not assigned'}</p>
               <p><strong>Date of Birth:</strong> {censorText(selectedVolunteer.dob)}</p>
               <p><strong>Gender:</strong> {censorText(selectedVolunteer.gender)}</p>
               <p><strong>Address:</strong> {censorText(selectedVolunteer.address)}</p>
@@ -659,6 +992,9 @@ function VolunteersList() {
               <p><strong>Name:</strong> {selectedVolunteer.name || '—'}</p>
               <p><strong>Email:</strong> {selectedVolunteer.email}</p>
               <p><strong>Phone:</strong> {selectedVolunteer.phone || '—'}</p>
+              <p><strong>VID:</strong> {selectedVolunteer.vid || 'Not assigned'}</p>
+              <p><strong>Department:</strong> {selectedVolunteer.department || 'Not assigned'}</p>
+              <p><strong>Title:</strong> {selectedVolunteer.title || 'Not assigned'}</p>
               <p><strong>Date of Birth:</strong> {selectedVolunteer.dob || '—'}</p>
               <p><strong>Gender:</strong> {selectedVolunteer.gender || '—'}</p>
               <p><strong>Address:</strong> {selectedVolunteer.address || '—'}</p>
@@ -742,7 +1078,6 @@ function Certificates() {
     } catch (e) { setMsg(e.message); }
   };
 
-  // Download certificates list as Excel
   const downloadExcel = () => {
     try {
       const excelData = allUsers
