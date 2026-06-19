@@ -23,7 +23,7 @@ export default function AppNavbar() {
     <nav className="navbar navbar-expand-lg navbar-dark navbar-24 sticky-top">
       <div className="container">
         <Link className="navbar-brand" to="/">
-          <span className="logo-chip"><img src="/logo.png" alt="24asia" height="26" /></span>
+          <span className="logo-chip"><img src="24asia_logo.png" alt="24asia" height="26" /></span>
         </Link>
         <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
           <span className="navbar-toggler-icon" />

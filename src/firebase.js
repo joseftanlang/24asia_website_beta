@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, OAuthProvider, FacebookAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
@@ -21,8 +21,6 @@ export const storage = getStorage(app);
 export const functions = getFunctions(app, 'asia-southeast1');
 
 export const googleProvider = new GoogleAuthProvider();
-export const facebookProvider = new FacebookAuthProvider();
-
 // Sign in with Apple — enable in Firebase Console + Apple Developer account, then
 // uncomment the Apple button in pages/Login.jsx. No other code changes needed.
 export const appleProvider = new OAuthProvider('apple.com');

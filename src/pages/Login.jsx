@@ -119,7 +119,7 @@ export default function Login() {
             border: '1px solid rgba(255,215,0,0.15)',
             animation: 'logoPulse 3s ease-in-out infinite'
           }}>
-            <img src="/logo.png" alt="24asia" height="44" />
+            <img src="/24asia_logo.png" alt="24asia" height="44" />
           </div>
         </div>
 

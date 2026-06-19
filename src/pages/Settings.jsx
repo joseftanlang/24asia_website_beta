@@ -72,7 +72,7 @@ const enablePush = async (userId) => {
     if (!('Notification' in window)) return { ok: false, reason: 'Not supported' };
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      new Notification('✅ Notifications enabled!', { body: 'You will now receive updates.', icon: '/logo.png' });
+      new Notification('✅ Notifications enabled!', { body: 'You will now receive updates.', icon: '/24asia_logo.png' });
       return { ok: true, reason: 'Success' };
     }
     return { ok: false, reason: 'Permission denied' };

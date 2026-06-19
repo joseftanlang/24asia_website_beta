@@ -18,13 +18,13 @@ messaging.onBackgroundMessage(({ notification }) => {
   if (!notification) return;
   self.registration.showNotification(notification.title || '24asia', {
     body: notification.body || '',
-    icon: '/icons/icon-192.png',
+    icon: '/icons/24asia_logo.png',
   });
 });
 
 // --- minimal offline shell ---
 const CACHE = '24asia-shell-v1';
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/logo.png'];
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/24asia_logo.png', '/icons/24asia_logo.png', '/24asia_logo.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
